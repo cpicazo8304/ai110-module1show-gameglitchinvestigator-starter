@@ -2,6 +2,37 @@ import random
 import streamlit as st
 from logic_utils import get_range_for_difficulty, parse_guess, check_guess, update_score
 
+    if guess == secret:
+        return "Win", "🎉 Correct!"
+
+    try:
+        # FIXME 1: Logic breaks here
+        if guess > secret:
+            return "Too High", "� Go LOWER!"
+        else:
+            return "Too Low", "📈 Go HIGHER!"
+    except TypeError:
+        g = str(guess)
+        if g == secret:
+            return "Win", "🎉 Correct!"
+        if g > secret:
+            return "Too High", "📉 Go LOWER!"
+        return "Too Low", "📈 Go HIGHER!"
+
+
+def update_score(current_score: int, outcome: str, attempt_number: int):
+    if outcome == "Win":
+        points = 100 - 10 * (attempt_number + 1)
+        if points < 10:
+            points = 10
+        return current_score + points
+    
+    # Penalize for wrong guesses
+    if outcome in ["Too High", "Too Low"]:
+        return current_score - 5
+    
+    return current_score
+
 st.set_page_config(page_title="Glitchy Guesser", page_icon="🎮")
 
 st.title("🎮 Game Glitch Investigator")
@@ -22,9 +53,6 @@ attempt_limit_map = {
 }
 attempt_limit = attempt_limit_map[difficulty]
 
-
-# FIX: Changed logic to update secret when difficulty changes, and also moved it before 
-# the check for previous_difficulty to avoid issues on first load.
 if "previous_difficulty" not in st.session_state:
     st.session_state.previous_difficulty = difficulty
 
@@ -42,9 +70,7 @@ if "secret" not in st.session_state:
     st.session_state.secret = random.randint(low, high)
 
 if "attempts" not in st.session_state:
-    # FIX: Start attempts at 0 instead of 1 to avoid off-by-one 
-    # issues with attempt counting and limits.
-    st.session_state.attempts = 0  
+    st.session_state.attempts = 1
 
 if "score" not in st.session_state:
     st.session_state.score = 0
@@ -57,9 +83,17 @@ if "history" not in st.session_state:
 
 st.subheader("Make a guess")
 
-# FIX: Placeholders so we can update the UI immediately after processing a guess.
-info_placeholder = st.empty()
-debug_placeholder = st.empty()
+st.info(
+    f"Guess a number between 1 and 100. "
+    f"Attempts left: {attempt_limit - st.session_state.attempts}"
+)
+
+with st.expander("Developer Debug Info"):
+    st.write("Secret:", st.session_state.secret)
+    st.write("Attempts:", st.session_state.attempts)
+    st.write("Score:", st.session_state.score)
+    st.write("Difficulty:", difficulty)
+    st.write("History:", st.session_state.history)
 
 raw_guess = st.text_input(
     "Enter your guess:",
@@ -74,14 +108,14 @@ with col2:
 with col3:
     show_hint = st.checkbox("Show hint", value=True)
 
-# FIX: Added new game logic to reset attempts, secret, status, and history when starting a new game. Also added a rerun to immediately reflect changes.
+# FIXME 4: Logic breaks here
 if new_game:
     st.session_state.attempts = 0
     low, high = get_range_for_difficulty(difficulty)  # Use dynamic range
     st.session_state.secret = random.randint(low, high)
     st.session_state.status = "playing"  # Reset status!
     st.session_state.history = []  # Clear history (optional, but recommended)
-    st.session_state.score = 0
+    # Optionally reset score: st.session_state.score = 0
     st.success("New game started.")
     st.rerun()
 
@@ -92,7 +126,6 @@ if st.session_state.status != "playing":
         st.error("Game over. Start a new game to try again.")
     st.stop()
 
-# FIXME 5
 if submit:
     st.session_state.attempts += 1
 
@@ -135,19 +168,6 @@ if submit:
                     f"The secret was {st.session_state.secret}. "
                     f"Score: {st.session_state.score}"
                 )
-
-# FIX: Update the UI placeholders after handling a guess so metadata refreshes immediately.
-info_placeholder.info(
-    f"Guess a number between 1 and 100. "
-    f"Attempts left: {attempt_limit - st.session_state.attempts}"
-)
-
-with debug_placeholder.expander("Developer Debug Info"):
-    st.write("Secret:", st.session_state.secret)
-    st.write("Attempts:", st.session_state.attempts)
-    st.write("Score:", st.session_state.score)
-    st.write("Difficulty:", difficulty)
-    st.write("History:", st.session_state.history)
 
 st.divider()
 st.caption("Built by an AI that claims this code is production-ready.")
